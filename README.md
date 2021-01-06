@@ -1,5 +1,7 @@
 Query Utility for Elasticsearch
-==============================
+===============================
+
+[![Pypi](https://img.shields.io/pypi/v/fastapi-elasticsearch.svg)](https://pypi.org/project/fastapi-elasticsearch/)
 
 Utility library for creating elasticsearch query proxies using [FastAPI](https://fastapi.tiangolo.com/).
 
