@@ -1,2 +1,3 @@
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 from fastapi_elasticsearch.api import ElasticsearchAPI
+from fastapi_elasticsearch.api import ElasticsearchAPIRouter
