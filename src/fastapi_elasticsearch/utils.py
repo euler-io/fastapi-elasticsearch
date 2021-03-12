@@ -17,4 +17,4 @@ def wait_elasticsearch(es: Elasticsearch, interval=2000, max_retries=30):
             attempts += 1
             time.sleep(interval/1000)
             last_error = e
-    raise Exception("Could not connect to Elasticsearch.", last_error)
+    raise Exception("Could not connect to Elasticsearch.")

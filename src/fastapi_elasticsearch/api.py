@@ -19,29 +19,16 @@ from fastapi.datastructures import Default, DefaultPlaceholder
 from fastapi.encoders import DictIntStrAny, SetIntStr
 
 
-class ElasticsearchAPI:
+class ElasticsearchAPIRouter:
     def __init__(self,
-                 es_client: Elasticsearch,
-                 index_name: str,
-                 source=None,
                  filters: List[Callable] = [],
                  matchers: List[Callable] = [],
                  highlighters: List[Callable] = [],
                  sorters: List[Callable] = []):
-        self.es_client = es_client
-        self.index_name = index_name
-        self.source = source
         self.filters = filters.copy()
         self.matchers = matchers.copy()
         self.highlighters = highlighters.copy()
         self.sorters = sorters.copy()
-        self.build_search_body = self.default_build_search_body
-
-    def search_builder(self) -> Callable[[DecoratedCallable], DecoratedCallable]:
-        def decorator(func: Callable) -> DecoratedCallable:
-            self.build_search_body = func
-            return func
-        return decorator
 
     def add_filter(self, func: Callable):
         self.filters.append(func)
@@ -78,6 +65,34 @@ class ElasticsearchAPI:
             self.add_sorter(func)
             return func
         return decorator
+
+
+class ElasticsearchAPI(ElasticsearchAPIRouter):
+    def __init__(self,
+                 es_client: Elasticsearch,
+                 index_name: str,
+                 source=None,
+                 filters: List[Callable] = [],
+                 matchers: List[Callable] = [],
+                 highlighters: List[Callable] = [],
+                 sorters: List[Callable] = []):
+        self.es_client = es_client
+        self.index_name = index_name
+        self.source = source
+        self.build_search_body = self.default_build_search_body
+        super().__init__(filters, matchers, highlighters, sorters)
+
+    def search_builder(self) -> Callable[[DecoratedCallable], DecoratedCallable]:
+        def decorator(func: Callable) -> DecoratedCallable:
+            self.build_search_body = func
+            return func
+        return decorator
+
+    def include_router(self, router: ElasticsearchAPIRouter):
+        self.filters.extend(router.filters)
+        self.matchers.extend(router.matchers)
+        self.highlighters.extend(router.highlighters)
+        self.sorters.extend(router.sorters)
 
     def search_route(self,
                      app: FastAPI,
@@ -249,10 +264,10 @@ class ElasticsearchAPI:
         return body
 
     def build_query(self,
-              request: Request,
-              size: int = 10,
-              start_from: int = 0,
-              scroll: str = None) -> JSONResponse:
+                    request: Request,
+                    size: int = 10,
+                    start_from: int = 0,
+                    scroll: str = None) -> JSONResponse:
         (
             filter_queries,
             matchers_queries,
