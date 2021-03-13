@@ -21,11 +21,11 @@ if not es.indices.exists(index_name):
     create_sample_index(es, index_name)
     load_sample_data(es, index_name)
 
-es_api = ElasticsearchAPIRouter(
+es_router = ElasticsearchAPIRouter(
     index_name=index_name
 )
 
-@es_api.filter()
+@es_router.filter()
 def filter_items():
     return {
         "term": {
@@ -34,7 +34,7 @@ def filter_items():
     }
 
 
-@es_api.filter()
+@es_router.filter()
 def filter_category(c: Optional[str] = Query(None,
                                              description="Category name to filter results.")):
     return {
@@ -44,7 +44,7 @@ def filter_category(c: Optional[str] = Query(None,
     } if c is not None else None
 
 
-@es_api.matcher()
+@es_router.matcher()
 def match_fields(q: Optional[str] = Query(None,
                                           description="Query to match the document text.")):
     return {
@@ -58,7 +58,7 @@ def match_fields(q: Optional[str] = Query(None,
     } if q is not None else None
 
 
-@es_api.matcher()
+@es_router.matcher()
 def match_fragments(q: Optional[str] = Query(None,
                                              description="Query to match the document text."),
                     h: bool = Query(False,
@@ -112,7 +112,7 @@ def match_fragments(q: Optional[str] = Query(None,
         return None
 
 
-@es_api.sorter()
+@es_router.sorter()
 def sort_by(so: Optional[str] = Query(None,
                                       description="Sort fields (uses format:'\\<field\\>,\\<direction\\>")):
     if so is not None:
@@ -126,7 +126,7 @@ def sort_by(so: Optional[str] = Query(None,
         return None
 
 
-@es_api.highlighter()
+@es_router.highlighter()
 def highlight(q: Optional[str] = Query(None,
                                        description="Query to match the document text."),
               h: bool = Query(False,
@@ -139,7 +139,7 @@ def highlight(q: Optional[str] = Query(None,
     } if q is not None and h else None
 
 
-@es_api.search_route("/search")
+@es_router.search_route("/search")
 async def search(req: Request,
                  size: Optional[int] = Query(10,
                                              le=100,
@@ -151,7 +151,7 @@ async def search(req: Request,
                  scroll: Optional[str] = Query(None,
                                                description="Period to retain the search context for scrolling."),
                  ) -> JSONResponse:
-    return es_api.search(
+    return es_router.search(
         es_client=es,
         request=req,
         size=size,
@@ -160,7 +160,7 @@ async def search(req: Request,
     )
 
 
-@es_api.search_route("/search/debug")
+@es_router.search_route("/search/debug")
 async def search_debug(req: Request,
                        size: Optional[int] = Query(10,
                                                    le=100,
@@ -172,7 +172,7 @@ async def search_debug(req: Request,
                        scroll: Optional[str] = Query(None,
                                                      description="Period to retain the search context for scrolling."),
                        ):
-    return es_api.build_query(
+    return es_router.build_query(
         request=req,
         size=size,
         start_from=start_from,
@@ -181,4 +181,4 @@ async def search_debug(req: Request,
 
 
 app = FastAPI()
-app.include_router(es_api)
+app.include_router(es_router)

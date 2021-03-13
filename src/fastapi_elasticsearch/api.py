@@ -322,7 +322,11 @@ class ElasticsearchAPIRouter(APIRouter):
                request: Request,
                size: int = 10,
                start_from: int = 0,
-               scroll: str = None) -> JSONResponse:
+               scroll: str = None,
+               doc_type=None,
+               params=None,
+               headers=None
+               ) -> JSONResponse:
 
         body = self.build_query(
             request=request,
@@ -332,6 +336,9 @@ class ElasticsearchAPIRouter(APIRouter):
         )
 
         return es_client.search(
+            body=body,
             index=self.index_name,
-            body=body
+            doc_type=doc_type,
+            params=params,
+            headers=headers
         )
