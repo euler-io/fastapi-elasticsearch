@@ -77,6 +77,10 @@ async def search(req: Request,
         scroll=scroll,
     )
 
+# Include the router to your app
+app = FastAPI()
+app.include_router(es_router)
+
 ```
 
 It is possible to customize the generated query body using the decorator @search_builder.
