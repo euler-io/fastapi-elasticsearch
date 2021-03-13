@@ -9,7 +9,7 @@ required = (HERE / "requirements.txt").read_text().splitlines()
 
 setup(
     name="fastapi-elasticsearch",
-    version="0.3.5",
+    version="0.3.6",
     description="Query Utility for Elasticsearch",
     long_description=README,
     long_description_content_type="text/markdown",
