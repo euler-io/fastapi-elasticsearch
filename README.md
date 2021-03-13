@@ -7,17 +7,15 @@ Utility library for creating elasticsearch query proxies using [FastAPI](https:/
 
 ```python
 
-from fastapi_elasticsearch import ElasticsearchAPI
+from fastapi_elasticsearch import ElasticsearchAPIRouter
 
-es_api = ElasticsearchAPI(
-    # The elasticsearech client
-    es_client=es,
+es_router = ElasticsearchAPIRouter(
     # The index or indices that your query will run.
     index_name=index_name)
 
 # Decorate a function as a filter.
 # The filter can declare parameters.
-@es_api.filter()
+@es_router.filter()
 def filter_category(c: Optional[str] = Query(None)):
     return {
         "term": {
@@ -28,7 +26,7 @@ def filter_category(c: Optional[str] = Query(None)):
 # Decorate a function as a matcher
 # (will contribute to the query scoring).
 # Parameters can also be used.
-@es_api.matcher()
+@es_router.matcher()
 def match_fields(q: Optional[str] = Query(None)):
     return {
         "multi_match": {
@@ -43,7 +41,7 @@ def match_fields(q: Optional[str] = Query(None)):
 
 # Decorate a function as a sorter.
 # Parameters can be declared.
-@es_api.sorter()
+@es_router.sorter()
 def sort_by(direction: Optional[str] = Query(None)):
     return {
         "name": direction
@@ -51,7 +49,7 @@ def sort_by(direction: Optional[str] = Query(None)):
 
 # Decorate a function as a highlighter.
 # Parameters can also be declared.
-@es_api.highlighter()
+@es_router.highlighter()
 def highlight(q: Optional[str] = Query(None),
               h: bool = Query(False):
     return {
@@ -61,7 +59,7 @@ def highlight(q: Optional[str] = Query(None),
 # Decorate a function as a search_route. 
 # It creates a new route using the declared filters (and matchers, etc.)
 # as the endpoint parameters but combined with the route's parameters.
-@es_api.search_route(app, "/search")
+@es_router.search_route("/search")
 async def search(req: Request,
                  size: Optional[int] = Query(10,
                                              le=100,
@@ -70,7 +68,9 @@ async def search(req: Request,
                                                    alias="f"),
                  scroll: Optional[str] = Query(None),
                 ) -> JSONResponse:
-    return es_api.search(
+    return es_router.search(
+        # The elasticsearech client
+        es_client=es,
         request=req,
         size=size,
         start_from=start_from,
@@ -84,7 +84,7 @@ It is possible to customize the generated query body using the decorator @search
 ```python
 from typing import List, Dict
 
-@es_api.search_builder()
+@es_router.search_builder()
 def build_search_body(size: int = 10,
                                 start_from: int = 0,
                                 scroll: str = None,

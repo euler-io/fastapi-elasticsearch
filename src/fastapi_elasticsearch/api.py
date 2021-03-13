@@ -10,25 +10,73 @@ from typing import (
 from fastapi.dependencies.utils import (
     get_dependant, request_params_to_args
 )
+from fastapi import params
 from fastapi import Request, FastAPI, Depends
-from fastapi.routing import APIRoute
 from fastapi.types import DecoratedCallable
 from starlette.responses import JSONResponse, Response
+from starlette.routing import BaseRoute
+from starlette import routing
+from starlette.types import ASGIApp
 from elasticsearch import Elasticsearch
+from fastapi.routing import APIRouter, APIRoute
 from fastapi.datastructures import Default, DefaultPlaceholder
 from fastapi.encoders import DictIntStrAny, SetIntStr
 
 
-class ElasticsearchAPIRouter:
+class ElasticsearchAPIRouter(APIRouter):
     def __init__(self,
+                 index_name: str,
+                 source=None,
+                 *,
                  filters: List[Callable] = [],
                  matchers: List[Callable] = [],
                  highlighters: List[Callable] = [],
-                 sorters: List[Callable] = []):
+                 sorters: List[Callable] = [],
+                 prefix: str = "",
+                 tags: Optional[List[str]] = None,
+                 dependencies: Optional[Sequence[params.Depends]] = None,
+                 default_response_class: Type[Response] = Default(JSONResponse),
+                 responses: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
+                 callbacks: Optional[List[BaseRoute]] = None,
+                 routes: Optional[List[routing.BaseRoute]] = None,
+                 redirect_slashes: bool = True,
+                 default: Optional[ASGIApp] = None,
+                 dependency_overrides_provider: Optional[Any] = None,
+                 route_class: Type[APIRoute] = APIRoute,
+                 on_startup: Optional[Sequence[Callable[[], Any]]] = None,
+                 on_shutdown: Optional[Sequence[Callable[[], Any]]] = None,
+                 deprecated: Optional[bool] = None,
+                 include_in_schema: bool = True,):
+        self.index_name = index_name
+        self.source = source
+        self.build_search_body = self.default_build_search_body
         self.filters = filters.copy()
         self.matchers = matchers.copy()
         self.highlighters = highlighters.copy()
         self.sorters = sorters.copy()
+        super().__init__(
+            prefix=prefix,
+            tags=tags,
+            dependencies=dependencies,
+            default_response_class=default_response_class,
+            responses=responses,
+            callbacks=callbacks,
+            routes=routes,
+            redirect_slashes=redirect_slashes,
+            default=default,
+            dependency_overrides_provider=dependency_overrides_provider,
+            route_class=route_class,
+            on_startup=on_startup,
+            on_shutdown=on_shutdown,
+            deprecated=deprecated,
+            include_in_schema=include_in_schema
+        )
+
+    def search_builder(self) -> Callable[[DecoratedCallable], DecoratedCallable]:
+        def decorator(func: Callable) -> DecoratedCallable:
+            self.build_search_body = func
+            return func
+        return decorator
 
     def add_filter(self, func: Callable):
         self.filters.append(func)
@@ -66,36 +114,7 @@ class ElasticsearchAPIRouter:
             return func
         return decorator
 
-
-class ElasticsearchAPI(ElasticsearchAPIRouter):
-    def __init__(self,
-                 es_client: Elasticsearch,
-                 index_name: str,
-                 source=None,
-                 filters: List[Callable] = [],
-                 matchers: List[Callable] = [],
-                 highlighters: List[Callable] = [],
-                 sorters: List[Callable] = []):
-        self.es_client = es_client
-        self.index_name = index_name
-        self.source = source
-        self.build_search_body = self.default_build_search_body
-        super().__init__(filters, matchers, highlighters, sorters)
-
-    def search_builder(self) -> Callable[[DecoratedCallable], DecoratedCallable]:
-        def decorator(func: Callable) -> DecoratedCallable:
-            self.build_search_body = func
-            return func
-        return decorator
-
-    def include_router(self, router: ElasticsearchAPIRouter):
-        self.filters.extend(router.filters)
-        self.matchers.extend(router.matchers)
-        self.highlighters.extend(router.highlighters)
-        self.sorters.extend(router.sorters)
-
     def search_route(self,
-                     app: FastAPI,
                      path: str,
                      *,
                      response_model: Optional[Type[Any]] = None,
@@ -121,8 +140,7 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
                          ),
                      name: Optional[str] = None):
         def decorator(func: Callable) -> DecoratedCallable:
-            self.add_search_route(app,
-                                  path,
+            self.add_search_route(path,
                                   func,
                                   response_model=response_model,
                                   status_code=status_code,
@@ -148,7 +166,6 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
         return decorator
 
     def add_search_route(self,
-                         app: FastAPI,
                          path: str,
                          endpoint: Callable[..., Any],
                          *,
@@ -178,28 +195,28 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
         new_dependencies = [] if dependencies is None else dependencies.copy()
         new_dependencies.extend(self.get_dependencies())
 
-        app.add_api_route(path,
-                          endpoint,
-                          response_model=response_model,
-                          status_code=status_code,
-                          tags=tags,
-                          dependencies=new_dependencies,
-                          summary=summary,
-                          description=description,
-                          response_description=response_description,
-                          responses=responses,
-                          deprecated=deprecated,
-                          methods=methods,
-                          operation_id=operation_id,
-                          response_model_include=response_model_include,
-                          response_model_exclude=response_model_exclude,
-                          response_model_by_alias=response_model_by_alias,
-                          response_model_exclude_unset=response_model_exclude_unset,
-                          response_model_exclude_defaults=response_model_exclude_defaults,
-                          response_model_exclude_none=response_model_exclude_none,
-                          include_in_schema=include_in_schema,
-                          response_class=response_class,
-                          name=name,)
+        self.add_api_route(path,
+                           endpoint,
+                           response_model=response_model,
+                           status_code=status_code,
+                           tags=tags,
+                           dependencies=new_dependencies,
+                           summary=summary,
+                           description=description,
+                           response_description=response_description,
+                           responses=responses,
+                           deprecated=deprecated,
+                           methods=methods,
+                           operation_id=operation_id,
+                           response_model_include=response_model_include,
+                           response_model_exclude=response_model_exclude,
+                           response_model_by_alias=response_model_by_alias,
+                           response_model_exclude_unset=response_model_exclude_unset,
+                           response_model_exclude_defaults=response_model_exclude_defaults,
+                           response_model_exclude_none=response_model_exclude_none,
+                           include_in_schema=include_in_schema,
+                           response_class=response_class,
+                           name=name,)
 
     def get_dependencies(self):
         dependencies = []
@@ -220,6 +237,19 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
             highlight_fields,
             sort_fields,
         )
+
+    def call_builders(self, request: Request, funcs: List[Callable]):
+        builders = []
+        for f in funcs:
+            dependant = get_dependant(path='', call=f)
+            filter_params = request_params_to_args(
+                dependant.query_params,
+                request.query_params)
+            (values, errors) = filter_params
+            result = dependant.call(**values)
+            if result is not None:
+                builders.append(result)
+        return builders
 
     def default_build_search_body(self,
                                   size: int = 10,
@@ -288,6 +318,7 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
         return body
 
     def search(self,
+               es_client: Elasticsearch,
                request: Request,
                size: int = 10,
                start_from: int = 0,
@@ -300,20 +331,7 @@ class ElasticsearchAPI(ElasticsearchAPIRouter):
             scroll=scroll
         )
 
-        return self.es_client.search(
+        return es_client.search(
             index=self.index_name,
             body=body
         )
-
-    def call_builders(self, request: Request, funcs: List[Callable]):
-        builders = []
-        for f in funcs:
-            dependant = get_dependant(path='', call=f)
-            filter_params = request_params_to_args(
-                dependant.query_params,
-                request.query_params)
-            (values, errors) = filter_params
-            result = dependant.call(**values)
-            if result is not None:
-                builders.append(result)
-        return builders

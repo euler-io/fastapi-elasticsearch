@@ -4,7 +4,7 @@ from elasticsearch import Elasticsearch
 from starlette.responses import JSONResponse
 from development.loaddata import create_sample_index, load_sample_data
 from fastapi_elasticsearch.utils import wait_elasticsearch
-from fastapi_elasticsearch import ElasticsearchAPI
+from fastapi_elasticsearch import ElasticsearchAPIRouter
 
 es = Elasticsearch(
     ["elastic-dev"],
@@ -21,11 +21,9 @@ if not es.indices.exists(index_name):
     create_sample_index(es, index_name)
     load_sample_data(es, index_name)
 
-es_api = ElasticsearchAPI(
-    es_client=es,
+es_api = ElasticsearchAPIRouter(
     index_name=index_name
 )
-
 
 @es_api.filter()
 def filter_items():
@@ -141,10 +139,7 @@ def highlight(q: Optional[str] = Query(None,
     } if q is not None and h else None
 
 
-app = FastAPI()
-
-
-@es_api.search_route(app, "/search")
+@es_api.search_route("/search")
 async def search(req: Request,
                  size: Optional[int] = Query(10,
                                              le=100,
@@ -157,6 +152,7 @@ async def search(req: Request,
                                                description="Period to retain the search context for scrolling."),
                  ) -> JSONResponse:
     return es_api.search(
+        es_client=es,
         request=req,
         size=size,
         start_from=start_from,
@@ -164,7 +160,7 @@ async def search(req: Request,
     )
 
 
-@es_api.search_route(app, "/search/debug")
+@es_api.search_route("/search/debug")
 async def search_debug(req: Request,
                        size: Optional[int] = Query(10,
                                                    le=100,
@@ -182,3 +178,7 @@ async def search_debug(req: Request,
         start_from=start_from,
         scroll=scroll,
     )
+
+
+app = FastAPI()
+app.include_router(es_api)
