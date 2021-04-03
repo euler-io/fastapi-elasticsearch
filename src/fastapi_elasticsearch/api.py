@@ -83,6 +83,7 @@ class ElasticsearchAPIQueryBuilder():
                                   start_from: int = 0,
                                   source: Union[List, Dict, str] = None,
                                   scroll: str = None,
+                                  minimum_should_match: int = 1,
                                   filters: List[Dict] = [],
                                   matchers: List[Dict] = [],
                                   highlighters: List[Dict] = [],
@@ -95,7 +96,7 @@ class ElasticsearchAPIQueryBuilder():
                 bool_query["filter"] = filters
             if len(matchers) > 0:
                 bool_query["should"] = matchers
-                bool_query["minimum_should_match"] = 1
+                bool_query["minimum_should_match"] = minimum_should_match
 
         body = {
             "query": query,
@@ -172,7 +173,8 @@ class ElasticsearchAPIQueryBuilder():
                    size: int = 10,
                    start_from: int = 0,
                    source: Union[List, Dict, str] = None,
-                   scroll: str = None) -> Dict:
+                   scroll: str = None,
+                   minimum_should_match: int = 1) -> Dict:
         (
             filter_queries,
             matchers_queries,
@@ -183,8 +185,9 @@ class ElasticsearchAPIQueryBuilder():
         body = self.build_search_body(
             size=size,
             start_from=start_from,
-            scroll=scroll,
             source=source,
+            scroll=scroll,
+            minimum_should_match=minimum_should_match,
             filters=filter_queries,
             matchers=matchers_queries,
             highlighters=highlight_fields,
@@ -200,14 +203,16 @@ class ElasticsearchAPIQueryBuilder():
               size: int = 10,
               start_from: int = 0,
               source: Union[List, Dict, str] = None,
-              scroll: str = None) -> Callable:
+              scroll: str = None,
+              minimum_should_match: int = 1) -> Callable:
         def builder(req: Request):
             return self.build_body(
                 req,
                 size=size,
                 start_from=start_from,
                 source=source,
-                scroll=scroll
+                scroll=scroll,
+                minimum_should_match=minimum_should_match
             )
         return builder
 

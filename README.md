@@ -102,7 +102,7 @@ It is possible to customize the generated query body using the decorator @search
 ```python
 from typing import List, Dict
 
-@es_router.search_builder()
+@query_builder.search_builder()
 def build_search_body(size: int = 10,
                                 start_from: int = 0,
                                 scroll: str = None,
