@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Request, Query
-from typing import Optional
+from fastapi import FastAPI, Request, Query, Depends, Path, HTTPException
+from typing import Optional, Dict
 from elasticsearch import Elasticsearch
 from starlette.responses import JSONResponse
 from development.loaddata import create_sample_index, load_sample_data
 from fastapi_elasticsearch.utils import wait_elasticsearch
-from fastapi_elasticsearch import ElasticsearchAPIRouter
+from fastapi_elasticsearch import ElasticsearchAPIRouteBuilder, ElasticsearchAPIQueryBuilder
 
 es = Elasticsearch(
     ["elastic-dev"],
@@ -21,11 +21,13 @@ if not es.indices.exists(index_name):
     create_sample_index(es, index_name)
     load_sample_data(es, index_name)
 
-es_router = ElasticsearchAPIRouter(
-    index_name=index_name
+route_builder = ElasticsearchAPIRouteBuilder(
+    es_client=es,
+    index_name="sample-data"
 )
 
-@es_router.filter()
+
+@route_builder.filter()
 def filter_items():
     return {
         "term": {
@@ -34,7 +36,7 @@ def filter_items():
     }
 
 
-@es_router.filter()
+@route_builder.filter()
 def filter_category(c: Optional[str] = Query(None,
                                              description="Category name to filter results.")):
     return {
@@ -44,7 +46,7 @@ def filter_category(c: Optional[str] = Query(None,
     } if c is not None else None
 
 
-@es_router.matcher()
+@route_builder.matcher()
 def match_fields(q: Optional[str] = Query(None,
                                           description="Query to match the document text.")):
     return {
@@ -58,7 +60,7 @@ def match_fields(q: Optional[str] = Query(None,
     } if q is not None else None
 
 
-@es_router.matcher()
+@route_builder.matcher()
 def match_fragments(q: Optional[str] = Query(None,
                                              description="Query to match the document text."),
                     h: bool = Query(False,
@@ -112,7 +114,7 @@ def match_fragments(q: Optional[str] = Query(None,
         return None
 
 
-@es_router.sorter()
+@route_builder.sorter()
 def sort_by(so: Optional[str] = Query(None,
                                       description="Sort fields (uses format:'\\<field\\>,\\<direction\\>")):
     if so is not None:
@@ -126,7 +128,7 @@ def sort_by(so: Optional[str] = Query(None,
         return None
 
 
-@es_router.highlighter()
+@route_builder.highlighter()
 def highlight(q: Optional[str] = Query(None,
                                        description="Query to match the document text."),
               h: bool = Query(False,
@@ -139,46 +141,47 @@ def highlight(q: Optional[str] = Query(None,
     } if q is not None and h else None
 
 
-@es_router.search_route("/search")
-async def search(req: Request,
-                 size: Optional[int] = Query(10,
-                                             le=100,
-                                             alias="s",
-                                             description="Defines the number of hits to return."),
-                 start_from: Optional[int] = Query(0,
-                                                   alias="f",
-                                                   description="Starting document offset."),
-                 scroll: Optional[str] = Query(None,
-                                               description="Period to retain the search context for scrolling."),
-                 ) -> JSONResponse:
-    return es_router.search(
-        es_client=es,
-        request=req,
-        size=size,
-        start_from=start_from,
-        scroll=scroll,
-    )
-
-
-@es_router.search_route("/search/debug")
-async def search_debug(req: Request,
-                       size: Optional[int] = Query(10,
-                                                   le=100,
-                                                   alias="s",
-                                                   description="Defines the number of hits to return."),
-                       start_from: Optional[int] = Query(0,
-                                                         alias="f",
-                                                         description="Starting document offset."),
-                       scroll: Optional[str] = Query(None,
-                                                     description="Period to retain the search context for scrolling."),
-                       ):
-    return es_router.build_query(
-        request=req,
-        size=size,
-        start_from=start_from,
-        scroll=scroll,
-    )
-
+debug_builder = route_builder.copy()
 
 app = FastAPI()
-app.include_router(es_router)
+
+
+@debug_builder.endpoint("/search/debug")
+async def search_debug(body=Depends(debug_builder.query_builder)):
+    return body
+
+es_route = route_builder.build("/search")
+
+app.routes.append(es_route)
+app.routes.append(debug_builder.build())
+
+
+doc_query_builder = ElasticsearchAPIQueryBuilder()
+
+
+@doc_query_builder.filter()
+def filter_document(doc_id: str = Path(None, title="The id of the document.")):
+    return {
+        "ids": {"values": [doc_id]}
+    }
+
+
+doc_query_builder.add_matcher(match_fragments)
+
+
+doc_route_builder = ElasticsearchAPIRouteBuilder()
+
+
+@doc_route_builder.endpoint("/document/{doc_id}")
+async def get_document(query_body: Dict = Depends(doc_query_builder.build(size=1))):
+    resp = es.search(
+        body=query_body,
+        index=index_name
+    )
+    if resp["hits"]["total"]["value"] == 1:
+        return resp["hits"]["hits"][0]
+    else:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+doc_route = doc_route_builder.build(query_builder=doc_query_builder)
+app.routes.append(doc_route)

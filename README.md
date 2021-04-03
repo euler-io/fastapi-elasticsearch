@@ -1,5 +1,4 @@
-Query Utility for Elasticsearch
-===============================
+# Query Utility for Elasticsearch
 
 [![Pypi](https://img.shields.io/pypi/v/fastapi-elasticsearch.svg)](https://pypi.org/project/fastapi-elasticsearch/)
 
@@ -7,15 +6,18 @@ Utility library for creating elasticsearch query proxies using [FastAPI](https:/
 
 ```python
 
-from fastapi_elasticsearch import ElasticsearchAPIRouter
+from fastapi_elasticsearch import ElasticsearchAPIRouteBuilder
 
-es_router = ElasticsearchAPIRouter(
+route_builder = ElasticsearchAPIRouteBuilder(
+    # The elasticsearch client
+    es_client=elasticsearch_client,
     # The index or indices that your query will run.
-    index_name=index_name)
+    index_name=index_name
+)
 
 # Decorate a function as a filter.
 # The filter can declare parameters.
-@es_router.filter()
+@route_builder.filter()
 def filter_category(c: Optional[str] = Query(None)):
     return {
         "term": {
@@ -26,7 +28,7 @@ def filter_category(c: Optional[str] = Query(None)):
 # Decorate a function as a matcher
 # (will contribute to the query scoring).
 # Parameters can also be used.
-@es_router.matcher()
+@route_builder.matcher()
 def match_fields(q: Optional[str] = Query(None)):
     return {
         "multi_match": {
@@ -41,7 +43,7 @@ def match_fields(q: Optional[str] = Query(None)):
 
 # Decorate a function as a sorter.
 # Parameters can be declared.
-@es_router.sorter()
+@route_builder.sorter()
 def sort_by(direction: Optional[str] = Query(None)):
     return {
         "name": direction
@@ -49,37 +51,49 @@ def sort_by(direction: Optional[str] = Query(None)):
 
 # Decorate a function as a highlighter.
 # Parameters can also be declared.
-@es_router.highlighter()
+@route_builder.highlighter()
 def highlight(q: Optional[str] = Query(None),
               h: bool = Query(False):
     return {
         "name": {}
     } if q is not None and h else None
 
-# Decorate a function as a search_route. 
-# It creates a new route using the declared filters (and matchers, etc.)
-# as the endpoint parameters but combined with the route's parameters.
-@es_router.search_route("/search")
-async def search(req: Request,
-                 size: Optional[int] = Query(10,
-                                             le=100,
-                                             alias="s"),
-                 start_from: Optional[int] = Query(0,
-                                                   alias="f"),
-                 scroll: Optional[str] = Query(None),
-                ) -> JSONResponse:
-    return es_router.search(
-        # The elasticsearech client
-        es_client=es,
+app = FastAPI()
+
+# Add the route to the app using the default endpoint.
+es_route = route_builder.build("/search")
+app.routes.append(es_route)
+
+# It is possible to customize the route endpoint.
+@route_builder.endpoint("/search")
+async def search(query_body = Depends(route_builder.query_builder)) -> JSONResponse:
+    response = es_client.search(
+        body=query_body,
+        index=index_name
+    )
+    modified_response = modify_response(response)
+    return modified_response
+
+# And use different parameters
+@route_builder.endpoint("/search-more")
+async def get_document(
+            req: Request,
+            size: Optional[int] = Query(100,
+                                        le=1000,
+                                        alias="s",
+                                        description="Defines the number of hits to return."),
+            start_from: Optional[int] = Query(0,
+                                              alias="f",
+                                              description="Starting document offset.")) -> JSONResponse:
+    query_body = route_builder.query_builder.build_body(
         request=req,
         size=size,
         start_from=start_from,
-        scroll=scroll,
     )
-
-# Include the router to your app
-app = FastAPI()
-app.include_router(es_router)
+    return es_client.search(
+        body=query_body,
+        index=index_name
+    )
 
 ```
 

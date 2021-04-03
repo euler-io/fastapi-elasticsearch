@@ -1,2 +1,2 @@
-__version__ = "0.3.6"
-from fastapi_elasticsearch.api import ElasticsearchAPIRouter
+__version__ = "0.4.0"
+from fastapi_elasticsearch.api import ElasticsearchAPIQueryBuilder, ElasticsearchAPIRouteBuilder

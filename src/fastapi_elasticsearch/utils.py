@@ -1,6 +1,7 @@
-from elasticsearch import Elasticsearch
 import logging
 import time
+
+from elasticsearch import Elasticsearch
 
 
 def wait_elasticsearch(es: Elasticsearch,
