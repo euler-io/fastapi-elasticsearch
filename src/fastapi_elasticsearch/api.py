@@ -82,7 +82,6 @@ class ElasticsearchAPIQueryBuilder():
                                   size: int = 10,
                                   start_from: int = 0,
                                   source: Union[List, Dict, str] = None,
-                                  scroll: str = None,
                                   minimum_should_match: int = 1,
                                   filters: List[Dict] = [],
                                   matchers: List[Dict] = [],
@@ -104,10 +103,7 @@ class ElasticsearchAPIQueryBuilder():
             "from": start_from,
         }
         if (source is not None):
-            body["source"] = source
-
-        if (scroll is not None):
-            body["scroll"] = scroll
+            body["_source"] = source
 
         if len(highlighters) > 0:
             highlight = {}
@@ -173,7 +169,6 @@ class ElasticsearchAPIQueryBuilder():
                    size: int = 10,
                    start_from: int = 0,
                    source: Union[List, Dict, str] = None,
-                   scroll: str = None,
                    minimum_should_match: int = 1) -> Dict:
         (
             filter_queries,
@@ -186,7 +181,6 @@ class ElasticsearchAPIQueryBuilder():
             size=size,
             start_from=start_from,
             source=source,
-            scroll=scroll,
             minimum_should_match=minimum_should_match,
             filters=filter_queries,
             matchers=matchers_queries,
@@ -203,7 +197,6 @@ class ElasticsearchAPIQueryBuilder():
               size: int = 10,
               start_from: int = 0,
               source: Union[List, Dict, str] = None,
-              scroll: str = None,
               minimum_should_match: int = 1) -> Callable:
         def builder(req: Request):
             return self.build_body(
@@ -211,7 +204,6 @@ class ElasticsearchAPIQueryBuilder():
                 size=size,
                 start_from=start_from,
                 source=source,
-                scroll=scroll,
                 minimum_should_match=minimum_should_match
             )
         return builder
