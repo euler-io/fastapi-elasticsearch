@@ -1,6 +1,8 @@
-from setuptools import setup, find_packages
 import os
 import pathlib
+
+from setuptools import find_packages, setup
+
 from fastapi_elasticsearch import __version__
 
 HERE = pathlib.Path(__file__).parent

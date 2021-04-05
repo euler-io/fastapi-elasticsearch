@@ -1,6 +1,6 @@
-from elasticsearch import Elasticsearch
 import lorem
 import names
+from elasticsearch import Elasticsearch
 
 
 def create_sample_index(es: Elasticsearch, index_name: str):

@@ -1,10 +1,13 @@
-from fastapi import FastAPI, Request, Query, Depends, Path, HTTPException
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 from elasticsearch import Elasticsearch
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from starlette.responses import JSONResponse
+
 from development.loaddata import create_sample_index, load_sample_data
+from fastapi_elasticsearch import (ElasticsearchAPIQueryBuilder,
+                                   ElasticsearchAPIRouteBuilder)
 from fastapi_elasticsearch.utils import wait_elasticsearch
-from fastapi_elasticsearch import ElasticsearchAPIRouteBuilder, ElasticsearchAPIQueryBuilder
 
 es = Elasticsearch(
     ["elastic-dev"],
@@ -21,13 +24,17 @@ if not es.indices.exists(index_name):
     create_sample_index(es, index_name)
     load_sample_data(es, index_name)
 
+app = FastAPI()
+
 route_builder = ElasticsearchAPIRouteBuilder(
     es_client=es,
     index_name="sample-data"
 )
 
+query_builder = ElasticsearchAPIQueryBuilder()
 
-@route_builder.filter()
+
+@query_builder.filter()
 def filter_items():
     return {
         "term": {
@@ -36,7 +43,7 @@ def filter_items():
     }
 
 
-@route_builder.filter()
+@query_builder.filter()
 def filter_category(c: Optional[str] = Query(None,
                                              description="Category name to filter results.")):
     return {
@@ -46,7 +53,7 @@ def filter_category(c: Optional[str] = Query(None,
     } if c is not None else None
 
 
-@route_builder.matcher()
+@query_builder.matcher()
 def match_fields(q: Optional[str] = Query(None,
                                           description="Query to match the document text.")):
     return {
@@ -60,7 +67,7 @@ def match_fields(q: Optional[str] = Query(None,
     } if q is not None else None
 
 
-@route_builder.matcher()
+@query_builder.matcher()
 def match_fragments(q: Optional[str] = Query(None,
                                              description="Query to match the document text."),
                     h: bool = Query(False,
@@ -114,7 +121,7 @@ def match_fragments(q: Optional[str] = Query(None,
         return None
 
 
-@route_builder.sorter()
+@query_builder.sorter()
 def sort_by(so: Optional[str] = Query(None,
                                       description="Sort fields (uses format:'\\<field\\>,\\<direction\\>")):
     if so is not None:
@@ -128,7 +135,7 @@ def sort_by(so: Optional[str] = Query(None,
         return None
 
 
-@route_builder.highlighter()
+@query_builder.highlighter()
 def highlight(q: Optional[str] = Query(None,
                                        description="Query to match the document text."),
               h: bool = Query(False,
@@ -141,22 +148,20 @@ def highlight(q: Optional[str] = Query(None,
     } if q is not None and h else None
 
 
-debug_builder = route_builder.copy()
-
-app = FastAPI()
-
-
-@debug_builder.endpoint("/search/debug")
-async def search_debug(body=Depends(debug_builder.query_builder)):
-    return body
-
-es_route = route_builder.build("/search")
-
-app.routes.append(es_route)
-app.routes.append(debug_builder.build())
+@app.get("/search")
+async def search(query_body: Dict = Depends(query_builder.build())) -> JSONResponse:
+    return es.search(
+        body=query_body,
+        index=index_name
+    )
 
 
-doc_query_builder = ElasticsearchAPIQueryBuilder()
+@app.get("/search/debug")
+async def search_debug(query_body: Dict = Depends(query_builder.build())) -> JSONResponse:
+    return query_body
+
+
+doc_query_builder = ElasticsearchAPIQueryBuilder(size=1, start_from=0)
 
 
 @doc_query_builder.filter()
@@ -169,11 +174,8 @@ def filter_document(doc_id: str = Path(None, title="The id of the document.")):
 doc_query_builder.add_matcher(match_fragments)
 
 
-doc_route_builder = ElasticsearchAPIRouteBuilder()
-
-
-@doc_route_builder.endpoint("/document/{doc_id}")
-async def get_document(query_body: Dict = Depends(doc_query_builder.build(size=1))):
+@app.get("/document/{doc_id}")
+async def get_document(query_body: Dict = Depends(doc_query_builder.build())):
     resp = es.search(
         body=query_body,
         index=index_name
@@ -182,6 +184,3 @@ async def get_document(query_body: Dict = Depends(doc_query_builder.build(size=1
         return resp["hits"]["hits"][0]
     else:
         raise HTTPException(status_code=404, detail="Document not found")
-
-doc_route = doc_route_builder.build(query_builder=doc_query_builder)
-app.routes.append(doc_route)
