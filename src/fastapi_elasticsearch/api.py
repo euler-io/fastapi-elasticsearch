@@ -128,6 +128,7 @@ class ElasticsearchAPIQueryBuilder():
         return size_func
 
     def default_size(self, size: Optional[int] = Query(10,
+                                                       ge=0,
                                                        le=100,
                                                        alias="size",
                                                        description="Defines the number of hits to return."),
@@ -140,12 +141,19 @@ class ElasticsearchAPIQueryBuilder():
             return func
         return decorator
 
+    def set_size(self, new_size: Union[Callable, int]):
+        if callable(new_size):
+            self.size_func = new_size
+        else:
+            self.size_func = self.fixed_size(new_size)
+
     def fixed_start_from(self, start_from):
         def start_from_func():
             return start_from
         return start_from_func
 
     def default_start_from(self, start_from: Optional[int] = Query(0,
+                                                                   ge=0,
                                                                    alias="from",
                                                                    description="Starting document offset."),
 
@@ -157,6 +165,12 @@ class ElasticsearchAPIQueryBuilder():
             self.start_from_func = func
             return func
         return decorator
+
+    def set_start_from(self, new_start_from: Union[Callable, int]):
+        if callable(new_start_from):
+            self.start_from_func = new_start_from
+        else:
+            self.start_from_func = self.fixed_start_from(new_start_from)
 
     def default_build_search_body(self,
                                   size: int = 10,
