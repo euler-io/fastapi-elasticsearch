@@ -190,6 +190,8 @@ class ElasticsearchAPIQueryBuilder():
             if len(matchers) > 0:
                 bool_query["should"] = matchers
                 bool_query["minimum_should_match"] = minimum_should_match
+        else:
+            query["match_all"] = {}
 
         body = {
             "query": query,
