@@ -36,7 +36,7 @@ def combine(functions: List[Callable]):
             )
             arg = forge.arg(
                 name=param_field.name,
-                type=param_field.type_,
+                type=param_field.outer_type_,
                 default=param.default
             )
             if param_name in combined_args:
@@ -55,8 +55,8 @@ def combine(functions: List[Callable]):
         for (func, arg_names) in funcs:
             func_kwargs = dict((k, kwargs[k]) for k in arg_names)
             result.append(func(*args, **func_kwargs))
-        return result
-
+        return result 
+ 
     new_args = tuple(combined_args.values())
     return forge.sign(*new_args)(combined_functions)
 

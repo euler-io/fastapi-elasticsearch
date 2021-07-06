@@ -1,12 +1,11 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from elasticsearch import Elasticsearch
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
 from starlette.responses import JSONResponse
 
 from development.loaddata import create_sample_index, load_sample_data
-from fastapi_elasticsearch import (ElasticsearchAPIQueryBuilder,
-                                   ElasticsearchAPIRouteBuilder)
+from fastapi_elasticsearch import ElasticsearchAPIQueryBuilder
 from fastapi_elasticsearch.utils import wait_elasticsearch
 
 es = Elasticsearch(
@@ -26,11 +25,6 @@ if not es.indices.exists(index_name):
 
 app = FastAPI()
 
-route_builder = ElasticsearchAPIRouteBuilder(
-    es_client=es,
-    index_name="sample-data"
-)
-
 query_builder = ElasticsearchAPIQueryBuilder()
 
 
@@ -44,13 +38,13 @@ def filter_items():
 
 
 @query_builder.filter()
-def filter_category(c: Optional[str] = Query(None,
+def filter_category(c: Optional[List[str]] = Query([],
                                              description="Category name to filter results.")):
     return {
-        "term": {
+        "terms": {
             "category": c
         }
-    } if c is not None else None
+    } if len(c) > 0 else None
 
 
 @query_builder.matcher()
