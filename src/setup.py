@@ -1,9 +1,6 @@
-import os
 import pathlib
 
 from setuptools import find_packages, setup
-
-from fastapi_elasticsearch import __version__
 
 HERE = pathlib.Path(__file__).parent
 README = (HERE / "../README.md").read_text()
@@ -12,7 +9,7 @@ required = (HERE / "requirements.txt").read_text().splitlines()
 
 setup(
     name="fastapi-elasticsearch",
-    version=__version__,
+    version="0.6.0",
     description="Query Utility for Elasticsearch",
     long_description=README,
     long_description_content_type="text/markdown",
