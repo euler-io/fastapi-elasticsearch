@@ -57,6 +57,9 @@ The resulting query will be like this:
   "from": 0
 }
 ```
+
+To control the scoring use a matcher.
+
 ```python
 
 # Or decorate a function as a matcher
