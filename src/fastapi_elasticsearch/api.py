@@ -1,21 +1,9 @@
-import inspect
-from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Sequence, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import forge
-from elasticsearch import Elasticsearch
-from fastapi import Depends, FastAPI, Query, Request, params
-from fastapi.datastructures import Default, DefaultPlaceholder
-from fastapi.dependencies.utils import (get_dependant, get_param_field,
-                                        get_typed_signature,
-                                        request_params_to_args)
-from fastapi.encoders import DictIntStrAny, SetIntStr
-from fastapi.routing import APIRoute, APIRouter
+from fastapi import Depends, Query
+from fastapi.dependencies.utils import analyze_param, get_typed_signature
 from fastapi.types import DecoratedCallable
-from starlette import routing
-from starlette.responses import JSONResponse, Response
-from starlette.routing import BaseRoute
-from starlette.types import ASGIApp
 
 
 def combine(functions: List[Callable]):
@@ -29,10 +17,11 @@ def combine(functions: List[Callable]):
         signature_params = signature.parameters
         func_arg_names = set({})
         for param_name, param in signature_params.items():
-            param_field = get_param_field(
-                param=param,
+            type_annotation, depends, param_field = analyze_param(
                 param_name=param_name,
-                default_field_info=param.default
+                annotation=param.annotation,
+                value=param.default,
+                is_path_param=False,
             )
             arg = forge.arg(
                 name=param_field.name,
@@ -55,8 +44,8 @@ def combine(functions: List[Callable]):
         for (func, arg_names) in funcs:
             func_kwargs = dict((k, kwargs[k]) for k in arg_names)
             result.append(func(*args, **func_kwargs))
-        return result 
- 
+        return result
+
     new_args = tuple(combined_args.values())
     return forge.sign(*new_args)(combined_functions)
 

@@ -1,4 +1,5 @@
-from typing import Dict, Optional, List
+from enum import Enum
+from typing import Dict, List, Optional
 
 from elasticsearch import Elasticsearch
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, Request
@@ -9,17 +10,13 @@ from fastapi_elasticsearch import ElasticsearchAPIQueryBuilder
 from fastapi_elasticsearch.utils import wait_elasticsearch
 
 es = Elasticsearch(
-    ["elastic-dev"],
-    use_ssl=True,
-    ca_certs="/euler/root-ca.pem",
-    ssl_show_warn=False,
-    http_auth=("admin", "admin")
+    ["http://elastic-dev:9200"]
 )
 
 wait_elasticsearch(es)
 
 index_name = "sample-data"
-if not es.indices.exists(index_name):
+if not es.indices.exists(index=index_name):
     create_sample_index(es, index_name)
     load_sample_data(es, index_name)
 
@@ -39,7 +36,7 @@ def filter_items():
 
 @query_builder.filter()
 def filter_category(c: Optional[List[str]] = Query([],
-                                             description="Category name to filter results.")):
+                                                   description="Category name to filter results.")):
     return {
         "terms": {
             "category": c
@@ -115,18 +112,16 @@ def match_fragments(q: Optional[str] = Query(None,
         return None
 
 
+class Direction(str, Enum):
+    asc = "asc"
+    desc = "desc"
+
+
 @query_builder.sorter()
-def sort_by(so: Optional[str] = Query(None,
-                                      description="Sort fields (uses format:'\\<field\\>,\\<direction\\>")):
-    if so is not None:
-        values = so.split(",")
-        field = values[0]
-        direction = values[1] if len(values) > 1 else "asc"
-        sorter = {}
-        sorter[field] = direction
-        return sorter
-    else:
-        return None
+def sort_by(direction: Optional[Direction] = Query(None)):
+    return {
+        "name": direction
+    } if direction is not None else None
 
 
 @query_builder.highlighter()
@@ -159,7 +154,7 @@ doc_query_builder = ElasticsearchAPIQueryBuilder(size=1, start_from=0)
 
 
 @doc_query_builder.filter()
-def filter_document(doc_id: str = Path(None, title="The id of the document.")):
+def filter_document(doc_id: str = Path(title="The id of the document.")):
     return {
         "ids": {"values": [doc_id]}
     }

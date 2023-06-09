@@ -44,7 +44,7 @@ def load_sample_data(es: Elasticsearch, index_name: str, num_docs=10):
             "join_field": "item",
         }
         print(f"Creating sample data {body}.")
-        res = es.index(index=index_name, doc_type="_doc", routing=1, body=body)
+        res = es.index(index=index_name, routing=1, document=body)
         doc_id = res["_id"]
         print(f"Created with id {doc_id}.")
         fragment_body = {
@@ -55,6 +55,6 @@ def load_sample_data(es: Elasticsearch, index_name: str, num_docs=10):
             },
         }
         print(f"Creating sample fragment data {fragment_body}.")
-        res = es.index(index=index_name, doc_type="_doc", routing=1, body=fragment_body)
+        res = es.index(index=index_name, routing=1, document=fragment_body)
         doc_id = res["_id"]
         print(f"Created with id {doc_id}.")
