@@ -94,7 +94,8 @@ The resulting query will be like this:
             "query": "bob",
             "fuzziness": "AUTO",
             "fields": [
-              "name^2"
+              "name^2",
+              "description"
             ]
           }
         }
