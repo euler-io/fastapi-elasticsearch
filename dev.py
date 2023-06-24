@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 from development.loaddata import create_sample_index, load_sample_data
 from fastapi_elasticsearch import ElasticsearchAPIQueryBuilder
-from fastapi_elasticsearch.utils import wait_elasticsearch
+from development.utils import wait_elasticsearch
 
 es = Elasticsearch(
     ["http://elastic-dev:9200"]
