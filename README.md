@@ -1,8 +1,8 @@
-# Query Helper for Elasticsearch
+# Query Helper for Elasticsearch or OpenSearch
 
 [![Pypi](https://img.shields.io/pypi/v/fastapi-elasticsearch.svg)](https://pypi.org/project/fastapi-elasticsearch/)
 
-This is a helper library for creating elasticsearch query proxies using [FastAPI](https://fastapi.tiangolo.com/).
+This is a helper library for creating elasticsearch or opensearch query proxies using [FastAPI](https://fastapi.tiangolo.com/).
 
 ```python
 
@@ -56,6 +56,29 @@ The resulting query will be like this:
   "size": 10,
   "from": 0
 }
+```
+
+To use OpenSearch, simply change the client.
+
+```python
+from fastapi_elasticsearch import ElasticsearchAPIQueryBuilder
+from opensearchpy import OpenSearch
+
+...
+
+@app.get("/search")
+async def search(
+        os: OpenSearch = Depends(get_opensearch),
+        query_body: Dict = Depends(query_builder.build())) -> JSONResponse:
+    return os.search(
+        body=query_body,
+        index=index_name
+    )
+...
+
+# Create a new query_builder for the endpoint.
+query_builder = ElasticsearchAPIQueryBuilder()
+
 ```
 
 To control the scoring use a matcher.
