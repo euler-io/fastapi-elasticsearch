@@ -1,4 +1,3 @@
-import os
 import pathlib
 
 from setuptools import find_packages, setup
@@ -10,7 +9,7 @@ required = (HERE / "requirements.txt").read_text().splitlines()
 
 setup(
     name="fastapi-elasticsearch",
-    version="0.6.0",
+    version="0.7.0",
     description="Query Utility for Elasticsearch",
     long_description=README,
     long_description_content_type="text/markdown",
