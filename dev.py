@@ -124,6 +124,18 @@ def sort_by(direction: Optional[Direction] = Query(None)):
     } if direction is not None else None
 
 
+@query_builder.agg()
+def agg_field(agg_field: Optional[str] = Query(None)):
+    return {
+        f"agg_{agg_field}": {
+            "terms": {
+                "field": agg_field,
+                "size": 10
+            }
+        }
+    } if agg_field is not None else None
+
+
 @query_builder.highlighter()
 def highlight(q: Optional[str] = Query(None,
                                        description="Query to match the document text."),

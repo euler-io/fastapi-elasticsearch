@@ -23,9 +23,10 @@ def combine(functions: List[Callable]):
                 value=param.default,
                 is_path_param=False,
             )
+            field_info = param_field.field_info
             arg = forge.arg(
                 name=param_field.name,
-                type=param_field.outer_type_,
+                type=field_info.annotation,
                 default=param.default
             )
             if param_name in combined_args:
@@ -58,7 +59,8 @@ class ElasticsearchAPIQueryBuilder():
                  filters: List[Callable] = [],
                  matchers: List[Callable] = [],
                  highlighters: List[Callable] = [],
-                 sorters: List[Callable] = []):
+                 sorters: List[Callable] = [],
+                 aggregations: List[Callable] = []):
         self.build_search_body = self.default_build_search_body
         self.size_func = self.fixed_size(
             size) if size is not None else self.default_size
@@ -68,6 +70,7 @@ class ElasticsearchAPIQueryBuilder():
         self.matchers = matchers.copy()
         self.highlighters = highlighters.copy()
         self.sorters = sorters.copy()
+        self.aggregations = aggregations.copy()
 
     def search_builder(self) -> Callable[[DecoratedCallable], DecoratedCallable]:
         def decorator(func: Callable) -> DecoratedCallable:
@@ -108,6 +111,15 @@ class ElasticsearchAPIQueryBuilder():
     def sorter(self):
         def decorator(func: Callable) -> DecoratedCallable:
             self.add_sorter(func)
+            return func
+        return decorator
+
+    def add_agg(self, func: Callable):
+        self.aggregations.append(func)
+
+    def agg(self):
+        def decorator(func: Callable) -> DecoratedCallable:
+            self.add_agg(func)
             return func
         return decorator
 
@@ -169,7 +181,8 @@ class ElasticsearchAPIQueryBuilder():
                                   filters: List[Dict] = [],
                                   matchers: List[Dict] = [],
                                   highlighters: List[Dict] = [],
-                                  sorters: List[Dict] = []) -> Dict:
+                                  sorters: List[Dict] = [],
+                                  aggregations: List[Dict] = []) -> Dict:
         query = {}
         if len(filters) > 0 or len(matchers) > 0:
             bool_query = {}
@@ -201,6 +214,12 @@ class ElasticsearchAPIQueryBuilder():
         if len(sorters) > 0:
             body["sort"] = sorters
 
+        if len(aggregations) > 0:
+            aggs = {}
+            for a in aggregations:
+                aggs.update(a)
+            body["aggs"] = aggs
+
         return body
 
     def build(self,
@@ -211,6 +230,7 @@ class ElasticsearchAPIQueryBuilder():
         matchers_functions = combine(self.matchers)
         highlighters_functions = combine(self.highlighters)
         sorters_functions = combine(self.sorters)
+        aggregations_functions = combine(self.aggregations)
 
         def builder(
                 size: int = Depends(self.size_func),
@@ -218,11 +238,13 @@ class ElasticsearchAPIQueryBuilder():
                 filters=Depends(filters_functions),
                 matchers=Depends(matchers_functions),
                 highlighters=Depends(highlighters_functions),
-                sorters=Depends(sorters_functions)):
+                sorters=Depends(sorters_functions),
+                aggregations=Depends(aggregations_functions)):
             filters = list(filter(lambda f: f is not None, filters))
             matchers = list(filter(lambda f: f is not None, matchers))
             highlighters = list(filter(lambda f: f is not None, highlighters))
             sorters = list(filter(lambda f: f is not None, sorters))
+            aggregations = list(filter(lambda f: f is not None, aggregations))
             return self.build_search_body(
                 size=size,
                 start_from=start_from,
@@ -232,5 +254,6 @@ class ElasticsearchAPIQueryBuilder():
                 matchers=matchers,
                 highlighters=highlighters,
                 sorters=sorters,
+                aggregations=aggregations
             )
         return builder
