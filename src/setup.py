@@ -10,7 +10,7 @@ with open(f"{HERE}/requirements.txt") as f:
 
 setup(
     name="fastapi-elasticsearch",
-    version="0.8.1",
+    version="0.8.2",
     description="Query Utility for Elasticsearch",
     long_description=README,
     long_description_content_type="text/markdown",
