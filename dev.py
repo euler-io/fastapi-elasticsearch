@@ -35,13 +35,13 @@ def filter_items():
 
 
 @query_builder.filter()
-def filter_category(c: Optional[List[str]] = Query([],
-                                                   description="Category name to filter results.")):
+def filter_category(category: Optional[List[str]] = Query([],
+                                                          description="Category name to filter results.")):
     return {
         "terms": {
-            "category": c
+            "category": category
         }
-    } if len(c) > 0 else None
+    } if len(category) > 0 else None
 
 
 @query_builder.matcher()
@@ -124,12 +124,17 @@ def sort_by(direction: Optional[Direction] = Query(None)):
     } if direction is not None else None
 
 
+class AggField(Enum):
+    category = 'category'
+
+
 @query_builder.agg()
-def agg_field(agg_field: Optional[str] = Query(None)):
+def agg_field(agg_field: Optional[AggField] = Query(None,
+                                               description="Field to aggregate.")):
     return {
-        f"agg_{agg_field}": {
+        f"agg_{agg_field.value}": {
             "terms": {
-                "field": agg_field,
+                "field": agg_field.value,
                 "size": 10
             }
         }

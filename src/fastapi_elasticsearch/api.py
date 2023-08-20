@@ -1,5 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Union
-
+from typing import Callable, Dict, List, Optional, Union
 import forge
 from fastapi import Depends, Query
 from fastapi.dependencies.utils import analyze_param, get_typed_signature
@@ -23,12 +22,11 @@ def combine(functions: List[Callable]):
                 value=param.default,
                 is_path_param=False,
             )
-            field_info = param_field.field_info
-            arg = forge.arg(
-                name=param_field.name,
-                type=field_info.annotation,
+            arg = forge.pok(
+                name=param_name,
+                type=param_field.outer_type_,
                 default=param.default
-            )
+            )            
             if param_name in combined_args:
                 current_arg = combined_args[param_name]
                 if str(arg) != str(current_arg):
@@ -239,7 +237,8 @@ class ElasticsearchAPIQueryBuilder():
                 matchers=Depends(matchers_functions),
                 highlighters=Depends(highlighters_functions),
                 sorters=Depends(sorters_functions),
-                aggregations=Depends(aggregations_functions)):
+                aggregations=Depends(aggregations_functions)
+        ):
             filters = list(filter(lambda f: f is not None, filters))
             matchers = list(filter(lambda f: f is not None, matchers))
             highlighters = list(filter(lambda f: f is not None, highlighters))
